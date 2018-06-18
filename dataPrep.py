@@ -33,8 +33,8 @@ def initializeData():
     print('Reading data...')
     global train
     global test
-    train = pd.read_csv("../Data/train.csv")
-    test = pd.read_csv("../Data/test.csv")
+    train = pd.read_csv("./Data/train.csv")
+    test = pd.read_csv("./Data/test.csv")
     print('Finished reading data.')
     
 def dataUnderstanding():
