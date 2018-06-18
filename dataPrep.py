@@ -39,7 +39,9 @@ def initializeData():
     print('Finished reading data.')
  
 def dataUnderstanding():
+    print(train.info(verbose=True, null_counts=True))
     print("")
+    print("Zielvariablenbeschreibung...:")
     print(train["TARGET"].describe())
     print(train["TARGET"].unique())
     anzahl = train["TARGET"].value_counts()
@@ -52,9 +54,8 @@ def dataUnderstanding():
         if len(train[column].unique()) < 2: # später für data preparation
         #print(column)
             dist_counter = dist_counter + 1
-        else:
-            pass
     
+    print(dist_counter , " Spalten beinhalten keine unterschiedlichen Werte!")
     """ 34 Spalten beinhalten keine unterschiedlichen Werte"""
     # look if columns contain string format
     string_counter = 0
@@ -63,33 +64,39 @@ def dataUnderstanding():
             if type(i) is str:
                 print(column)
                 string_counter = string_counter + 1
-                continue
-            else:
-                pass
-            """ keine einzige Spalte beinhaltet Datenwerte vom Typ String"""
-    # zähle NaN Werte
+    print(string_counter, " Spalten beinhalten String Werte!")
+    
     nan_counter = train.isnull().values.sum()
-    """
+    print(nan_counter," null-Werte sind insgesamt im Datensatz enthalten")
     for column in train:
+        print(column ," ", " Max Wert: ",train[column].max()," Min Werte: ", train[column].min())
+    """
+    for column in train
         for i in train[column]:
             if i == -999999 or i == 999999 or i == 9999999999 or i == -9999999999:
                 print("spaltennamen: ", column, "Wert: ", i, "andere werte", train[column].unique())
             else:
                 pass
     """
-    removeFeaturesWithLowVariance()
+    dataPreparation()
+    #removeFeaturesWithLowVariance()
     #correlationToTarget()  # pointless??
-    deleteColumnsWithHighCorrelation()
+    #deleteColumnsWithHighCorrelation()
     
-def dataPreperation():
+def dataPreparation():
     """
     - spalten rauslöschen die identische werte haben
-    - spalten rauslöschen die keine verschiedenen werte beinhalten
     - spalten rauslöschen mit geringer varianz
     - spalten rauslöschen die untereinander stark korrelieren
     - Zeilen rauslöschen mit fehlenden werten
     """
-    featureSelection()
+    """spalten rauslöschen die keine verschiedenen Werte beinhalten"""
+    for column in train:
+        if len(train[column].unique()) < 2: # später für data preparation
+            del train[column]
+        else:
+            pass
+    #featureSelection()
     #### data cleansing is not necessary in our case, only numeric values
     #normalize()
     #dataVisualization()
