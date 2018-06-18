@@ -37,13 +37,58 @@ def initializeData():
     train = pd.read_csv("./Data/train.csv")
     test = pd.read_csv("./Data/test.csv")
     print('Finished reading data.')
-    
+ 
 def dataUnderstanding():
+    print("")
+    print(train["TARGET"].describe())
+    print(train["TARGET"].unique())
+    anzahl = train["TARGET"].value_counts()
+    print("Anzahl Satisfied: ", anzahl[0])
+    print("Anzahl Unsatisfied: ", anzahl[1])
+    print("Anzahl in Prozent: ", (anzahl[0]/(anzahl[0]+anzahl[1]))*100,"%.")
+    # look if columns contain distinct variables
+    dist_counter = 0
+    for column in train:
+        if len(train[column].unique()) < 2: # später für data preparation
+        #print(column)
+            dist_counter = dist_counter + 1
+        else:
+            pass
+    
+    """ 34 Spalten beinhalten keine unterschiedlichen Werte"""
+    # look if columns contain string format
+    string_counter = 0
+    for column in train:
+        for i in train[column]:
+            if type(i) is str:
+                print(column)
+                string_counter = string_counter + 1
+                continue
+            else:
+                pass
+            """ keine einzige Spalte beinhaltet Datenwerte vom Typ String"""
+    # zähle NaN Werte
+    nan_counter = train.isnull().values.sum()
+    """
+    for column in train:
+        for i in train[column]:
+            if i == -999999 or i == 999999 or i == 9999999999 or i == -9999999999:
+                print("spaltennamen: ", column, "Wert: ", i, "andere werte", train[column].unique())
+            else:
+                pass
+    """
     removeFeaturesWithLowVariance()
     #correlationToTarget()  # pointless??
     deleteColumnsWithHighCorrelation()
     
 def dataPreperation():
+    """
+    - spalten rauslöschen die identische werte haben
+    - spalten rauslöschen die keine verschiedenen werte beinhalten
+    - spalten rauslöschen mit geringer varianz
+    - spalten rauslöschen die untereinander stark korrelieren
+    - Zeilen rauslöschen mit fehlenden werten
+    """
     featureSelection()
     #### data cleansing is not necessary in our case, only numeric values
     #normalize()
