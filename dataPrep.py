@@ -9,6 +9,7 @@ from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import chi2
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import normalize
+from sklearn.ensemble import ExtraTreesClassifier
 #from matplotlib import pyplot as plt
 
 # We'll also import seaborn, a Python graphing library
@@ -25,7 +26,7 @@ test = ""
 def main():
     initializeData()
     dataUnderstanding()
-    #dataPreperation()
+    dataPreperation()
     #modeling()
     evaluation()
 
@@ -42,8 +43,8 @@ def dataUnderstanding():
     #correlationToTarget()  # pointless??
     deleteColumnsWithHighCorrelation()
     
-#def dataPreperation():
-    #featureSelection()
+def dataPreperation():
+    featureSelection()
     #### data cleansing is not necessary in our case, only numeric values
     #normalize()
     #dataVisualization()
@@ -91,7 +92,27 @@ def deleteColumnsWithHighCorrelation():
     train.to_csv(file_name, sep=';', encoding='utf-8')
 
 def featureSelection():
-    
+    #chiSquared()
+    decisionTree()
+
+def decisionTree():
+    global test
+    # split data into train and test
+    test_id = test.ID
+    test = test.drop(["ID"],axis=1)
+
+    X = train.drop(["TARGET","ID"],axis=1)
+    y = train.TARGET.values
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=1729)
+    print(X_train.shape, X_test.shape, test.shape)
+
+    ## # Feature selection
+    clf = ExtraTreesClassifier(random_state=1729)
+    selector = clf.fit(X_train, y_train)
+    print(selector)
+
+def chiSquared():
     ########
     # note: chi squared feature selection only works with positive values
     # we also have negative values
@@ -112,6 +133,7 @@ def featureSelection():
     #Apply the transformation on to dataset 
     features = fit.transform(X) 
     print(features[0:20,:])
+
 
 #def normalize():
     # see feature selection, what to do with negative values?
