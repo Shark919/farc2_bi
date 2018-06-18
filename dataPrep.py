@@ -2,15 +2,14 @@
 # First, we'll import pandas, a data processing and CSV file I/O library
 import pandas as pd
 import numpy as np
-#import datetime
-from sklearn import datasets, linear_model
 from sklearn.feature_selection import VarianceThreshold
-from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import chi2
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import normalize
 from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.feature_selection import SelectFromModel
 #from matplotlib import pyplot as plt
+from sklearn.feature_selection import SelectPercentile
+from sklearn.preprocessing import Binarizer, scale
 
 # We'll also import seaborn, a Python graphing library
 import warnings # current version of seaborn generates a bunch of warnings that we'll ignore
@@ -77,9 +76,29 @@ def dataUnderstanding():
             else:
                 pass
     """
-    removeFeaturesWithLowVariance()
-    #correlationToTarget()  # pointless??
-    deleteColumnsWithHighCorrelation()
+
+def removeConstantColumns():
+    global train
+    global test
+    remove = []
+    for col in train.columns:
+        if train[col].std() == 0:
+            remove.append(col)
+    train.drop(remove, axis=1, inplace=True)
+    test.drop(remove, axis=1, inplace=True)
+    
+def removeDuplicatedColumns():
+    global train
+    global test
+    remove = []
+    cols = train.columns
+    for i in range(len(cols)-1):
+        v = train[cols[i]].values
+        for j in range(i+1,len(cols)):
+            if np.array_equal(v,train[cols[j]].values):
+                remove.append(cols[j])
+    train.drop(remove, axis=1, inplace=True)
+    test.drop(remove, axis=1, inplace=True)
     
 def dataPreperation():
     """
@@ -89,6 +108,12 @@ def dataPreperation():
     - spalten rauslöschen die untereinander stark korrelieren
     - Zeilen rauslöschen mit fehlenden werten
     """
+    removeConstantColumns()
+    removeDuplicatedColumns()
+    printToCSVWithFilename(train, 'train_cleanup.csv')
+    printToCSVWithFilename(test, 'test_cleanup.csv')
+    #removeFeaturesWithLowVariance()
+    deleteColumnsWithHighCorrelation()
     featureSelection()
     #### data cleansing is not necessary in our case, only numeric values
     #normalize()
@@ -108,19 +133,7 @@ def removeFeaturesWithLowVariance():
     global train
     sel = VarianceThreshold(threshold=(.8 * (1 - .8)))
     train = pd.DataFrame(sel.fit_transform(train.values))
-    file_name = 'remLowVariance.csv' #-{date:%Y-%m-%d-%H:%M:%S}    .format( date=datetime.datetime.now() )
-    train.to_csv(file_name, sep=';', encoding='utf-8')
-
-def correlationToTarget():
-    print("Show Pearson's correlation:")
-    c = train[train.columns[1:]].corr()['TARGET'][:-1]
-    for i,r in c.items():
-        print(i,r)
-    #print("Show Spearman's rho correlation:")
-    #print(train.corr('spearman'))
-    
-    #print("Show Kendal's tau correlation:")
-    #print(train.corr('kendall'))
+    printToCSVWithFilename(train, 'train_remove_low_variance.csv')
         
 def deleteColumnsWithHighCorrelation():
     global train
@@ -130,20 +143,18 @@ def deleteColumnsWithHighCorrelation():
     upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(np.bool))
     # Find index of feature columns with correlation greater than 0.85
     to_drop = [column for column in upper.columns if any(upper[column] > 0.85)]
-    #print(to_drop)
     for col in to_drop:
         del train[col]
-    file_name = 'corOut.csv' #-{date:%Y-%m-%d-%H:%M:%S}    .format( date=datetime.datetime.now() )
-    train.to_csv(file_name, sep=';', encoding='utf-8')
+    printToCSVWithFilename(train, 'train_remove_high_correlation.csv')
 
 def featureSelection():
-    #chiSquared()
-    decisionTree()
+    # EITHER CHI OR DECISON
+    chiSquared()
+    #decisionTree()
 
 def decisionTree():
     global test
-    # split data into train and test
-    test_id = test.ID
+    global train
     test = test.drop(["ID"],axis=1)
 
     X = train.drop(["TARGET","ID"],axis=1)
@@ -152,37 +163,31 @@ def decisionTree():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=1729)
     print(X_train.shape, X_test.shape, test.shape)
 
-    ## # Feature selection
     clf = ExtraTreesClassifier(random_state=1729)
     selector = clf.fit(X_train, y_train)
-    print(selector)
+    fs = SelectFromModel(selector, prefit=True)
+    
+    X_train = fs.transform(X_train)
+    X_test = fs.transform(X_test)
+    test = fs.transform(test)
+    train = fs.transform(train)
+    print(X_train.shape, X_test.shape, test.shape)
+    printToCSVWithFilename(train, 'train_f_sel_decision_tree.csv')
+
 
 def chiSquared():
-    ########
-    # note: chi squared feature selection only works with positive values
-    # we also have negative values
-    # i dont know if there are feature selection methods that also work here
-    # either we dont do this step OR normalize the data to postive values only
-    ########
+    global train
+    data = train.iloc[:,:-1]
+    y = train.TARGET
+    binarizedData = Binarizer().fit_transform(scale(data))
+    selectChi2 = SelectPercentile(chi2, percentile=3).fit(binarizedData, y)
     
-    values = train.values
-    array = normalize(values, axis=0, norm='max')
-    
-    #Split the data into input and target
-    X = array[:,:array.shape[1]-1]
-    Y = array[:,[array.shape[1]-1]]
-    test = SelectKBest(score_func=chi2, k=20)    
-    fit = test.fit(X, Y) 
-    #Summarize scores numpy.set_printoptions(precision=3) print(fit.scores_)
-    
-    #Apply the transformation on to dataset 
-    features = fit.transform(X) 
-    print(features[0:20,:])
-
-
-#def normalize():
-    # see feature selection, what to do with negative values?
-    
+    chi2_selected = selectChi2.get_support()
+    chi2_selected_features = [ f for i,f in enumerate(data.columns) if chi2_selected[i]]
+    print('Chi2 selected {} features {}.'.format(chi2_selected.sum(),
+       chi2_selected_features))
+    train = train[chi2_selected_features+['TARGET']]
+    printToCSVWithFilename(train, 'train_f_sel_chi_squared.csv')
 
 def trainAndTest():
     # Let's see what's in the trainings data - Jupyter notebooks print the result of the last thing you do
@@ -207,5 +212,8 @@ def trainAndTest():
     #predictions = lm.predict(test)
     #print(predictions[0:5])
     #print (model.score(X_test, test))
+
+def printToCSVWithFilename(data, filename):
+    data.to_csv(filename, sep=';', encoding='utf-8')
 
 main()
