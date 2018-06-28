@@ -25,7 +25,7 @@ test = ""
 def main():
     initializeData()
     dataUnderstanding()
-    dataPreperation()
+    dataPreparation()
     #modeling()
     evaluation()
 
@@ -51,11 +51,8 @@ def dataUnderstanding():
     dist_counter = 0
     for column in train:
         if len(train[column].unique()) < 2: # später für data preparation
-        #print(column)
             dist_counter = dist_counter + 1
-    
     print(dist_counter , " Spalten beinhalten keine unterschiedlichen Werte!")
-    """ 34 Spalten beinhalten keine unterschiedlichen Werte"""
     # look if columns contain string format
     string_counter = 0
     for column in train:
@@ -69,21 +66,14 @@ def dataUnderstanding():
     print(nan_counter," null-Werte sind insgesamt im Datensatz enthalten")
     for column in train:
         print(column ," ", " Max Wert: ",train[column].max()," Min Werte: ", train[column].min())
-    """
-    for column in train
-        for i in train[column]:
-            if i == -999999 or i == 999999 or i == 9999999999 or i == -9999999999:
-                print("spaltennamen: ", column, "Wert: ", i, "andere werte", train[column].unique())
-            else:
-                pass
-    """
 
-    dataPreparation()
+    #dataPreparation()
     #removeFeaturesWithLowVariance()
     #correlationToTarget()  # pointless??
     #deleteColumnsWithHighCorrelation()
 
 def removeConstantColumns():
+    print("Removing Constant Columns...")
     global train
     global test
     remove = []
@@ -92,8 +82,10 @@ def removeConstantColumns():
             remove.append(col)
     train.drop(remove, axis=1, inplace=True)
     test.drop(remove, axis=1, inplace=True)
-    
+    print("Constant Columns Removed.")
+
 def removeDuplicatedColumns():
+    print("Removing Column Duplicates...")
     global train
     global test
     remove = []
@@ -105,20 +97,22 @@ def removeDuplicatedColumns():
                 remove.append(cols[j])
     train.drop(remove, axis=1, inplace=True)
     test.drop(remove, axis=1, inplace=True)
-    
+    print("Column Duplicates removed.")
+
 def dataPreparation():
-    """
-    - spalten rauslöschen die identische werte haben
-    - spalten rauslöschen mit geringer varianz
-    - spalten rauslöschen die untereinander stark korrelieren
-    - Zeilen rauslöschen mit fehlenden werten
-    """
     #featureSelection()
+    """spalten rauslöschen die identische werte haben"""
     removeConstantColumns()
+    """redundante Spalten löschen"""
     removeDuplicatedColumns()
+    """zeilen mit fehlenden Werten löschen"""
+    removeRowsMissingValues()
+    """neue csv für train datensatz"""
     printToCSVWithFilename(train, 'train_cleanup.csv')
+    """neue csv für test datensatz"""
     printToCSVWithFilename(test, 'test_cleanup.csv')
     #removeFeaturesWithLowVariance()
+    """ lösche eine der spalten wenn starke korrelation untereinander gegeben"""
     deleteColumnsWithHighCorrelation()
     featureSelection()
     #### data cleansing is not necessary in our case, only numeric values
@@ -130,7 +124,14 @@ def dataPreparation():
 
 #def modeling():
     # todo
-
+def removeRowsMissingValues():
+    print("Removing Rows with missing values...")
+    for index, row in train.iterrows():
+        for column in train:
+            if row[column] == -999999 or row[column] == 999999 or row[column] == 9999999999 or row[column] == -9999999999:
+                train.drop(index, inplace = True)
+                break
+    print("Rows with missing values removed.")
 def evaluation():
     trainAndTest()
     # todo
