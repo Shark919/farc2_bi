@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+from matplotlib import pyplot as plt
+import seaborn as sns
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.feature_selection import chi2
 from sklearn.feature_selection import SelectFromModel
@@ -26,10 +28,10 @@ target = 'TARGET'
 
 def main():
     initializeData()
-    #dataUnderstanding()
-    dataPreparation()
-    modeling()
-    evaluation()
+    dataUnderstanding()
+    #dataPreparation()
+    #modeling()
+    #evaluation()
 
 def initializeData():
     print('Reading data...')
@@ -49,6 +51,7 @@ def dataUnderstanding():
     print("Anzahl Satisfied: ", anzahl[0])
     print("Anzahl Unsatisfied: ", anzahl[1])
     print("Anzahl in Prozent: ", (anzahl[0]/(anzahl[0]+anzahl[1]))*100,"%.")
+    sns.countplot(train["TARGET"])
     # look if columns contain distinct variables
     dist_counter = 0
     for column in train:
@@ -80,18 +83,31 @@ def dataPreparation():
     global train
     global test
 
-    #removeConstantColumns(train, test)
-    #removeDuplicatedColumns(train, test)
-    #printToCSVWithFilename(train, 'train_cleanup.csv')
-    #printToCSVWithFilename(test, 'test_cleanup.csv')
-    #deleteColumnsWithHighCorrelation(train)
-    #deleteColumnsWithHighCorrelation(test)
-    #printToCSVWithFilename(train, 'train_remove_high_correlation.csv')
-    #printToCSVWithFilename(test, 'test_remove_high_correlation.csv')
+    removeConstantColumns(train, test)
+    removeDuplicatedColumns(train, test)
+    printToCSVWithFilename(train, 'train_cleanup.csv')
+    printToCSVWithFilename(test, 'test_cleanup.csv')
+    deleteColumnsWithHighCorrelation(train)
+    deleteColumnsWithHighCorrelation(test)
+    printToCSVWithFilename(train, 'train_remove_high_correlation.csv')
+    printToCSVWithFilename(test, 'test_remove_high_correlation.csv')
+    
     featureSelection()
+    removeRowsMissingValues()
+    
     #### data cleansing is not necessary in our case, only numeric values
     #normalize()
     #dataVisualization()
+    
+
+def removeRowsMissingValues():
+    print("Removing Rows with missing values...")
+    for index, row in train.iterrows():
+        for column in train:
+            if row[column] == -999999 or row[column] == 999999 or row[column] == 9999999999 or row[column] == -9999999999:
+                train.drop(index, inplace = True)
+                break
+    print("Rows with missing values removed.")    
     
 def modeling():
     splitDataset()
@@ -246,5 +262,12 @@ def splitDataset():
 def printToCSVWithFilename(data, filename):
     if printToCSV:
         data.to_csv(filename, sep=';', encoding='utf-8')
+
+def histogram(data, x_label, y_label, title):
+    _, ax = plt.subplots()
+    ax.hist(data, color = '#539caf')
+    ax.set_ylabel(y_label)
+    ax.set_xlabel(x_label)
+    ax.set_title(title)
 
 main()
