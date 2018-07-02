@@ -1,21 +1,19 @@
+from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
-from matplotlib import pyplot as plt
 import seaborn as sns
-from sklearn.feature_selection import VarianceThreshold
-from sklearn.feature_selection import chi2
-from sklearn.feature_selection import SelectFromModel
 from sklearn.feature_selection import SelectPercentile
+from sklearn.feature_selection import chi2
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.preprocessing import Binarizer, scale
-from sklearn.metrics import roc_auc_score
 from sklearn.linear_model import LogisticRegression
-from sklearn.datasets.samples_generator import make_blobs
+from sklearn import metrics, cross_validation
+from sklearn.ensemble import ExtraTreesClassifier
 from sklearn import cross_validation as cv
 from sklearn import tree
 from sklearn import naive_bayes
 
+featureSelectionType = "decision" #chi or decision
 printToCSV = False
 train = ""
 test = ""
@@ -23,20 +21,18 @@ X_train = ""
 X_test = ""
 y_train = ""
 y_test = ""
-selectedFeatures = ""
-target = 'TARGET'
 
 def main():
     initializeData()
-    dataUnderstanding()
-    #dataPreparation()
-    #modeling()
+    #dataUnderstanding()
+    dataPreparation()
+    modeling()
     #evaluation()
 
 def initializeData():
-    print('Reading data...')
     global train
     global test
+    print('Reading data...')
     train = pd.read_csv("./Data/train.csv")
     test = pd.read_csv("./Data/test.csv")
     print('Finished reading data.')
@@ -74,26 +70,19 @@ def dataUnderstanding():
 
 
 def dataPreparation():
-    """
-    - spalten rauslöschen die identische werte haben
-    - spalten rauslöschen mit geringer varianz
-    - spalten rauslöschen die untereinander stark korrelieren
-    - Zeilen rauslöschen mit fehlenden werten
-    """
     global train
     global test
 
-    removeConstantColumns(train, test)
-    removeDuplicatedColumns(train, test)
+    removeConstantColumns(train)
+    removeDuplicatedColumns(train)
     printToCSVWithFilename(train, 'train_cleanup.csv')
-    printToCSVWithFilename(test, 'test_cleanup.csv')
-    deleteColumnsWithHighCorrelation(train)
-    deleteColumnsWithHighCorrelation(test)
-    printToCSVWithFilename(train, 'train_remove_high_correlation.csv')
-    printToCSVWithFilename(test, 'test_remove_high_correlation.csv')
     
+    deleteColumnsWithHighCorrelation(train)
+    printToCSVWithFilename(train, 'train_remove_high_correlation.csv')
+    
+    splitDataset()
     featureSelection()
-    removeRowsMissingValues()
+    #removeRowsMissingValues()
     
     #### data cleansing is not necessary in our case, only numeric values
     #normalize()
@@ -110,33 +99,27 @@ def removeRowsMissingValues():
     print("Rows with missing values removed.")    
     
 def modeling():
-    splitDataset()
-    #logisticRegression()
+    logisticRegression()
     decisionTreeClassifier()
 
 def evaluation():
     print("todo")
-    # todo
     
 def featureSelection():    
-    # EITHER CHI OR DECISON
-    chiSquared()
-    #printToCSVWithFilename(train, 'train_f_sel_decision_tree.csv')
-    #printToCSVWithFilename(test, 'test_f_sel_decision_tree.csv')
-    #decisionTree()
-    #decisionForest()
+    if featureSelectionType == "chi":
+        chiSquared()
+    if featureSelectionType == "decision":
+        decisionTree()
+    printToCSVWithFilename(train, 'train_f_sel_decision_tree.csv')
 
-
-def removeConstantColumns(train, test):
+def removeConstantColumns(train):
     remove = []
     for col in train.columns:
         if train[col].std() == 0:
             remove.append(col)
     train.drop(remove, axis=1, inplace=True)
-    test.drop(remove, axis=1, inplace=True)
-
     
-def removeDuplicatedColumns(train, test):
+def removeDuplicatedColumns(train):
     remove = []
     cols = train.columns
     for i in range(len(cols)-1):
@@ -145,8 +128,6 @@ def removeDuplicatedColumns(train, test):
             if np.array_equal(v,train[cols[j]].values):
                 remove.append(cols[j])
     train.drop(remove, axis=1, inplace=True)
-    test.drop(remove, axis=1, inplace=True)
-
     
 def deleteColumnsWithHighCorrelation(data):
     print('Delete Columns with high correlation...')
@@ -161,33 +142,16 @@ def deleteColumnsWithHighCorrelation(data):
 def decisionTree():
     global test
     global train
-    global selectedFeatures
-        
-    test = test.drop(["ID"],axis=1)
-
-    X = train.drop(["TARGET","ID"],axis=1)
-    y = train.TARGET.values
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=1729)
-    print(X_train.shape, X_test.shape, test.shape)
+    global X_train
+    global y_train
 
     clf = ExtraTreesClassifier(random_state=1729)
     selector = clf.fit(X_train, y_train)
-    #fs = SelectFromModel(selector, prefit=True)
-    
     feat_imp = pd.Series(clf.feature_importances_, index = X_train.columns.values).sort_values(ascending=False)
     importantFeatures = feat_imp[:20]
     
     train = train[importantFeatures.index.tolist()+['TARGET']]
     test = test[importantFeatures.index.tolist()]
-    
-    #X_train = fs.transform(X_train)
-    #X_test = fs.transform(X_test)
-    #scaled_features = fs.transform(X)
-    #selectedFeatures = pd.DataFrame(scaled_features, index=train.index, columns=train.columns)
-    #selectedFeatures = pd.DataFrame(scaled_features, columns = X.columns)
-    #train = fs.transform(train)
-    #print(X_train.shape, X_test.shape, test.shape)
 
 def chiSquared():
     global train
@@ -208,7 +172,6 @@ def chiSquared():
     # todo
 
 def logisticRegression():
-    ###CHECK ON TRAIN
     model = LogisticRegression()
     model.fit(X_train, y_train)
     score = model.score(X_test, y_test)
@@ -235,7 +198,7 @@ def decisionTreeClassifier():
     feature_names.remove('TARGET')
     
     X = train[feature_names]
-    y = train[target]
+    y = train['TARGET']
     skf = cv.StratifiedKFold(y, n_folds=3, shuffle=True)
     score_metric = 'roc_auc'
     scores = {}
@@ -243,6 +206,10 @@ def decisionTreeClassifier():
     def score_model(model):
         return cv.cross_val_score(model, X, y, cv=skf, scoring=score_metric)
         
+    predicted = cross_validation.cross_val_predict(LogisticRegression(), X, y, cv=10)
+    print (metrics.accuracy_score(train['TARGET'], predicted))
+    print (metrics.classification_report(y, predicted) )
+
     # time: 10s
     scores['tree'] = score_model(tree.DecisionTreeClassifier()) 
     scores['gaussian'] = score_model(naive_bayes.GaussianNB())
@@ -257,7 +224,7 @@ def splitDataset():
     global X_test
     global y_train
     global y_test
-    X_train, X_test, y_train, y_test = train_test_split(train.iloc[:,:-1], train.TARGET, test_size=0.20, random_state=1729)
+    X_train, X_test, y_train, y_test = train_test_split(train.drop(["TARGET","ID"],axis=1), train.TARGET.values, test_size=0.20, random_state=1729)
 
 def printToCSVWithFilename(data, filename):
     if printToCSV:
