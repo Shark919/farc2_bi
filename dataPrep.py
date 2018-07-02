@@ -28,8 +28,8 @@ target = 'TARGET'
 
 def main():
     initializeData()
-    dataUnderstanding()
-    #dataPreparation()
+    #dataUnderstanding()
+    dataPreparation()
     #modeling()
     #evaluation()
 
@@ -52,6 +52,7 @@ def dataUnderstanding():
     print("Anzahl Unsatisfied: ", anzahl[1])
     print("Anzahl in Prozent: ", (anzahl[0]/(anzahl[0]+anzahl[1]))*100,"%.")
     sns.countplot(train["TARGET"])
+    plt.show()
     # look if columns contain distinct variables
     dist_counter = 0
     for column in train:
@@ -91,14 +92,23 @@ def dataPreparation():
     deleteColumnsWithHighCorrelation(test)
     printToCSVWithFilename(train, 'train_remove_high_correlation.csv')
     printToCSVWithFilename(test, 'test_remove_high_correlation.csv')
-    
     featureSelection()
+    dataVisualization()
     removeRowsMissingValues()
     
     #### data cleansing is not necessary in our case, only numeric values
     #normalize()
-    #dataVisualization()
     
+    
+def dataVisualization():
+    ## Heatmap visualization of correlations
+    sns.heatmap(train.corr())
+    plt.show()
+    for column in train:
+        if len(train[column].unique()) < 10 and column != "TARGET":
+            sns.countplot(train[column])
+            plt.show()
+
 
 def removeRowsMissingValues():
     print("Removing Rows with missing values...")
@@ -111,8 +121,8 @@ def removeRowsMissingValues():
     
 def modeling():
     splitDataset()
-    #logisticRegression()
-    decisionTreeClassifier()
+    logisticRegression()
+    #decisionTreeClassifier()
 
 def evaluation():
     print("todo")
@@ -125,7 +135,6 @@ def featureSelection():
     #printToCSVWithFilename(test, 'test_f_sel_decision_tree.csv')
     #decisionTree()
     #decisionForest()
-
 
 def removeConstantColumns(train, test):
     remove = []
@@ -224,7 +233,7 @@ def logisticRegression():
     trainWithoutTarget = train.iloc[:,:-1]
     model = LogisticRegression()
     model.fit(trainWithoutTarget, train.TARGET)
-    ynew = model.predict(test)
+    ynew = model.predict(trainWithoutTarget)
     # show the inputs and predicted outputs
     #for i in range(len(trainWithoutTarget)):
     #	print("X=%s, Predicted=%s" % (test.values[i], ynew[i]))
