@@ -226,6 +226,21 @@ def confusionMatrix(y_pred):
     df_confusion.values[1, 0] = df_confusion.values[1, 0] / df_confusion.values[1, 2]
     df_confusion.values[1, 1] = df_confusion.values[1, 1] / df_confusion.values[1, 2]
     plot_confusion_matrix(df_confusion, str(y_pred[0])+'probability')
+    # classifier predicted a customer churn and they didn't -> its forgivable
+    # clas. predicted customer to return, didn't act, and then they churned ->really bad
+    benefitFalsePositive = -100   ## SUNK COSTS - churn predicted, but customer stays
+    benefitFalseNegative = 0 ## LOST MONEY FROM CUSTOMER (same as true positve, just reverse, not rewarding twice) - churn not predicted, but customer left
+    benefitTruePositive = 1000 ## MONEY GAINED FROM KEEPING CUSTOMER - churn predicted and customer wanted to churn
+    benefitTrueNegative = 0 ## NO COSTS NO GAINS - no churn predicted, and no churn
+    probabilityP = df_confusion.values[1, 2] / df_confusion.values[2, 2]
+    probabilityN = df_confusion.values[0, 2] / df_confusion.values[2, 2]
+    df_confusion.values[0, 0] = df_confusion.values[0, 0] * benefitTrueNegative * probabilityN
+    df_confusion.values[0, 1] = df_confusion.values[0, 1] * benefitFalsePositive * probabilityP
+    df_confusion.values[1, 0] = df_confusion.values[1, 0] * benefitFalseNegative * probabilityN
+    df_confusion.values[1, 1] = df_confusion.values[1, 1] * benefitTruePositive * probabilityP
+    plot_confusion_matrix(df_confusion, str(y_pred[0])+'profit')
+    profit = df_confusion.values[0, 0] + df_confusion.values[0, 1] + df_confusion.values[1, 0] + df_confusion.values[1, 1]
+    print('Expected profit with model '+str(y_pred[0])+' is '+str(profit))
     print('Generated confusion matrices.')
     
 def probabilities():
