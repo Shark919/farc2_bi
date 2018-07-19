@@ -1,0 +1,4 @@
+man erkennt, dass naive bayes bei gleicher accuracy ein deutlich schlechteres Modell ist, da die false positive rate extrem hoch ist
+
+If my classifier predicted a customer would churn and they didn't, that's not the best but it's forgivable. 
+However, if my classifier predicted a customer would return, I didn't act, and then they churned... that's really bad.
