@@ -76,7 +76,7 @@ def dataPreparation():
     splitDataset()
     featureSelection()
     printToCSVWithFilename(train, '03_train_f_sel_decision_tree.csv')
-    #dataVisualization()
+    dataVisualization()
     removeRowsMissingValues()
     printToCSVWithFilename(train, '04_train_after_datapreperation.csv')
     #### data cleansing is not necessary in our case, only numeric values
@@ -100,9 +100,9 @@ def modeling():
         return cv.cross_val_score(model, X, y, cv=skf, scoring=score_metric)
     
     print('Logistic Regression...')
-    scores['logistic'] = score_model(LogisticRegression(), 'logistic_regression')
+    scores['logistic'] = score_model(LogisticRegression(random_state=1337), 'logistic_regression')
     print('Decision Tree Classifier...')
-    scores['tree'] = score_model(tree.DecisionTreeClassifier(), 'decision_tree_classifier')
+    scores['tree'] = score_model(tree.DecisionTreeClassifier(random_state=1337), 'decision_tree_classifier')
     print('Naive Bayes Gaussian Classifier...')
     scores['gaussian'] = score_model(naive_bayes.GaussianNB(), 'naive_bayes_gaussian_classifier')
     
@@ -119,7 +119,6 @@ def evaluation():
     print('STEP 4: Evaluation')
     for predicted in predictedValues:
         confusionMatrix(predicted)
-    probabilities()
  
 ############################################################################## 
 
@@ -194,6 +193,8 @@ def chiSquared():
     global test
     data = train.iloc[:,:-1]
     y = train.TARGET
+    ## see https://www.kaggle.com/cast42/exploring-features/notebook
+    ## used as comparison to our decision tree
     binarizedData = Binarizer().fit_transform(scale(data))
     selectChi2 = SelectPercentile(chi2, percentile=3).fit(binarizedData, y)
     
@@ -208,12 +209,27 @@ def dataVisualization():
     ## Heatmap visualization of correlations
     sns.heatmap(train.corr())
     plt.savefig('./Generated_Visualization/heatmap.png')
+    plt.clf()
     i = 0
     for column in train:
         if len(train[column].unique()) < 10 and column != "TARGET":
             sns.countplot(train[column])
             plt.savefig('./Generated_Visualization/column'+str(i)+'.png')
+            plt.clf()
             i = i + 1
+    ## Visualizing the top 2 features
+    ## inspired by competition winner https://www.kaggle.com/cast42/exploring-features/notebook
+    train['var15'].hist(bins=100)
+    plt.savefig('./Generated_Visualization/var15.png')
+    plt.clf()
+    sns.FacetGrid(train, hue="TARGET", size=6).map(sns.kdeplot, "var15").add_legend()
+    plt.title('Unhappy customers are slightly older')
+    plt.savefig('./Generated_Visualization/var15ByTarget.png')
+    plt.clf()
+    sns.FacetGrid(train, hue="TARGET", size=6).map(sns.kdeplot, "var36").add_legend()
+    plt.savefig('./Generated_Visualization/var36dist.png')
+    plt.clf()
+
     
 def confusionMatrix(y_pred):
     y_actu = train['TARGET'].values
@@ -222,8 +238,6 @@ def confusionMatrix(y_pred):
     y_pred_data = pd.Series(y_pred[1], name='Predicted')
     df_confusion = pd.crosstab(y_actu, y_pred_data, rownames=['Actual'], colnames=['Predicted'], margins=True)
     plot_confusion_matrix(df_confusion, y_pred[0])
-    #df_conf_norm = df_confusion / df_confusion.sum(axis=1)
-    #plot_confusion_matrix(df_conf_norm, str(str(y_pred[0])+'normalized'))
     df_confusion = df_confusion.astype(float)
     df_confusion.values[0, 0] = df_confusion.values[0, 0] / df_confusion.values[0, 2]
     df_confusion.values[0, 1] = df_confusion.values[0, 1] / df_confusion.values[0, 2]
@@ -247,41 +261,7 @@ def confusionMatrix(y_pred):
     print('Expected profit with model '+str(y_pred[0])+' is '+str(profit))
     print('Generated confusion matrices.')
     
-def probabilities():
-    import warnings
-    warnings.filterwarnings('ignore')
-    
-    # Use 10 estimators so predictions are all multiples of 0.1
-    pred_prob = run_prob_cv(train.drop(["TARGET"],axis=1), train.TARGET.values, RF, n_estimators=50)
-    pred_churn = pred_prob[:,1]
-    is_churn = train.TARGET.values == 1
-    
-    # Number of times a predicted probability is assigned to an observation
-    counts = pd.value_counts(pred_churn)
-    
-    # calculate true probabilities
-    true_prob = {}
-    for prob in counts.index:
-        true_prob[prob] = np.mean(is_churn[pred_churn == prob])
-        true_prob = pd.Series(true_prob)
-    
-    # pandas-fu
-    counts = pd.concat([counts,true_prob], axis=1).reset_index()
-    counts.columns = ['pred_prob', 'count', 'true_prob']
-    printToCSVWithFilename(counts, 'probabilities_Random_Forest.csv')
-    print('Generated Table with probabilities.')
-    
 ##############################################################################
-    
-def run_prob_cv(X, y, clf_class, **kwargs):
-    kf = KFold(len(y), n_folds=5, shuffle=True)
-    y_prob = np.zeros((len(y),2))
-    for train_index, test_index in kf:
-        clf = clf_class(**kwargs)
-        clf.fit(X_train,y_train)
-        # Predict probabilities, not classes
-        y_prob[test_index] = clf.predict_proba(X_test)
-    return y_prob
     
 def plot_confusion_matrix(df_confusion, title):
     cmap='rainbow'
