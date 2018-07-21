@@ -77,7 +77,7 @@ def dataPreparation():
     featureSelection()
     printToCSVWithFilename(train, '03_train_f_sel_decision_tree.csv')
     dataVisualization()
-    removeRowsMissingValues()
+    #removeRowsMissingValues()
     printToCSVWithFilename(train, '04_train_after_datapreperation.csv')
     #### data cleansing is not necessary in our case, only numeric values
     #### normalizing is not necessarry
@@ -85,18 +85,19 @@ def dataPreparation():
 def modeling():
     print('STEP 3: Modeling')
     global predictedValues
+    global test
     feature_names = train.columns.tolist()
     feature_names.remove('TARGET')
-    
+    Z = test[feature_names]
     X = train[feature_names]
     y = train['TARGET']
-    skf = cv.StratifiedKFold(y, n_folds=3, shuffle=True)
+    skf = cv.StratifiedKFold(y, n_folds=3, shuffle=True, random_state=1337 )
     score_metric = 'roc_auc'
     scores = {}
     
     def score_model(model, title):
         predicted = cv.cross_val_predict(model, X, y, cv=skf)
-        predictedValues.append([title, predicted]);
+        predictedValues.append([title, predicted])
         return cv.cross_val_score(model, X, y, cv=skf, scoring=score_metric)
     
     print('Logistic Regression...')
@@ -105,11 +106,24 @@ def modeling():
     scores['tree'] = score_model(tree.DecisionTreeClassifier(random_state=1337), 'decision_tree_classifier')
     print('Naive Bayes Gaussian Classifier...')
     scores['gaussian'] = score_model(naive_bayes.GaussianNB(), 'naive_bayes_gaussian_classifier')
-    
-    clf = tree.DecisionTreeClassifier()
-    clf.fit(X_train, y_train)
+
+    clf = tree.DecisionTreeClassifier(random_state=1337)
+    clf.fit(X, y)
     tree.export_graphviz(clf,out_file='tree.dot')  
-    
+
+    test_predictions = pd.DataFrame(clf.predict_proba(Z))
+    test_predictions.to_csv('test_predictions_decisionTree.csv', index=True)
+
+    clf = LogisticRegression(random_state=1337)
+    clf.fit(X,y)
+    test_predictions = pd.DataFrame(clf.predict_proba(Z))
+    test_predictions.to_csv('test_predictions_logisticRegression.csv', index=True)
+
+    clf = naive_bayes.GaussianNB()
+    clf.fit(X,y)
+    test_predictions = pd.DataFrame(clf.predict_proba(Z))
+    test_predictions.to_csv('test_predictions_naiveBayes.csv', index=True)
+
     model_scores = pd.DataFrame(scores).mean()
     model_scores.sort_values(ascending=False)
     model_scores.to_csv('model_scores.csv', index=True)
