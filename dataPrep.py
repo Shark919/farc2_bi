@@ -16,7 +16,7 @@ from sklearn import naive_bayes
 from sklearn.ensemble import RandomForestClassifier as RF
 
 featureSelectionType = "decision" #chi or decision
-printToCSV = False
+printToCSV = True
 
 train = ""
 test = ""
@@ -30,7 +30,7 @@ def main():
     print("CSV Mode activated: "+str(printToCSV))
     print("Feature Selection Type: "+str(featureSelectionType))
     initializeData()
-    #dataUnderstanding()
+    dataUnderstanding()
     dataPreparation()
     modeling()
     evaluation()
@@ -77,7 +77,7 @@ def dataPreparation():
     featureSelection()
     printToCSVWithFilename(train, '03_train_f_sel_decision_tree.csv')
     dataVisualization()
-    #removeRowsMissingValues()
+    removeRowsMissingValues()
     printToCSVWithFilename(train, '04_train_after_datapreperation.csv')
     #### data cleansing is not necessary in our case, only numeric values
     #### normalizing is not necessarry
